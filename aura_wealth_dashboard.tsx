@@ -1,0 +1,450 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+} from 'recharts';
+import { 
+  Home, Wallet, PieChart, Activity, Plus, X, 
+  ArrowUpRight, ArrowDownRight, DollarSign, CreditCard, 
+  TrendingUp, Calendar, Trash2
+} from 'lucide-react';
+
+// Default data for first-time users to see how the app looks
+const initialData = [
+  { id: '1', title: 'Senior Developer Salary', category: 'Income', amount: 8500, type: 'income', date: new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0] },
+  { id: '2', title: 'MacBook Pro M3', category: 'Electronics', amount: 2499, type: 'expense', date: new Date(Date.now() - 4 * 86400000).toISOString().split('T')[0] },
+  { id: '3', title: 'Groceries (Whole Foods)', category: 'Food', amount: 185, type: 'expense', date: new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0] },
+  { id: '4', title: 'Freelance Project', category: 'Income', amount: 1200, type: 'income', date: new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0] },
+  { id: '5', title: 'Netflix Subscription', category: 'Entertainment', amount: 20, type: 'expense', date: new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0] },
+];
+
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+};
+
+const StatCard = ({ title, amount, type, icon: Icon, trend }) => {
+  const isPositive = type === 'income' || type === 'balance';
+  const colorClass = type === 'income' ? 'text-emerald-400' : type === 'expense' ? 'text-rose-400' : 'text-white';
+  const bgClass = type === 'income' ? 'bg-emerald-400/10' : type === 'expense' ? 'bg-rose-400/10' : 'bg-white/10';
+
+  return (
+    <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl backdrop-blur-sm transition-all hover:bg-zinc-900">
+      <div className="flex justify-between items-start mb-4">
+        <div className={`p-3 rounded-xl ${bgClass}`}>
+          <Icon className={`w-6 h-6 ${colorClass}`} />
+        </div>
+        {trend && (
+          <div className="flex items-center space-x-1 text-sm text-zinc-400">
+            <TrendingUp className="w-4 h-4" />
+            <span>{trend}</span>
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="text-zinc-400 text-sm font-medium mb-1">{title}</p>
+        <h3 className={`text-3xl font-bold tracking-tight ${colorClass}`}>
+          {formatCurrency(amount)}
+        </h3>
+      </div>
+    </div>
+  );
+};
+
+const AddTransactionModal = ({ isOpen, onClose, onAdd }) => {
+  const [formData, setFormData] = useState({
+    title: '',
+    amount: '',
+    category: '',
+    type: 'expense',
+    date: new Date().toISOString().split('T')[0]
+  });
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.title || !formData.amount || !formData.category) return;
+    
+    onAdd({
+      id: Date.now().toString(),
+      ...formData,
+      amount: parseFloat(formData.amount)
+    });
+    setFormData({ title: '', amount: '', category: '', type: 'expense', date: new Date().toISOString().split('T')[0] });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold text-white">New Transaction</h2>
+          <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-800 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, type: 'expense' })}
+              className={`p-3 rounded-xl border flex items-center justify-center space-x-2 transition-colors ${
+                formData.type === 'expense' ? 'bg-rose-500/10 border-rose-500/50 text-rose-400' : 'border-zinc-800 text-zinc-400 hover:bg-zinc-900'
+              }`}
+            >
+              <ArrowDownRight className="w-4 h-4" />
+              <span className="font-medium">Expense</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, type: 'income' })}
+              className={`p-3 rounded-xl border flex items-center justify-center space-x-2 transition-colors ${
+                formData.type === 'income' ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'border-zinc-800 text-zinc-400 hover:bg-zinc-900'
+              }`}
+            >
+              <ArrowUpRight className="w-4 h-4" />
+              <span className="font-medium">Income</span>
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Title</label>
+            <input 
+              type="text" 
+              placeholder="e.g. Coffee, Salary, Rent" 
+              className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1">Amount</label>
+              <div className="relative">
+                <span className="absolute left-4 top-3 text-zinc-500">$</span>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:border-indigo-500 transition-all"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1">Date</label>
+              <input 
+                type="date" 
+                className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-all"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Category</label>
+            <input 
+              type="text" 
+              placeholder="e.g. Food, Transport, Salary" 
+              className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-all"
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              required
+            />
+          </div>
+
+          <button 
+            type="submit"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-xl transition-colors mt-6"
+          >
+            Save Transaction
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const ChartSection = ({ data }) => {
+  // Process data for the chart: aggregate by date
+  const chartData = useMemo(() => {
+    const grouped = data.reduce((acc, curr) => {
+      if (!acc[curr.date]) {
+        acc[curr.date] = { date: curr.date, income: 0, expense: 0 };
+      }
+      if (curr.type === 'income') acc[curr.date].income += curr.amount;
+      else acc[curr.date].expense += curr.amount;
+      return acc;
+    }, {});
+
+    return Object.values(grouped).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-7); // Last 7 days
+  }, [data]);
+
+  return (
+    <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl h-[400px] flex flex-col">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h3 className="text-lg font-semibold text-white">Cash Flow</h3>
+          <p className="text-sm text-zinc-400">Income vs Expenses (Last 7 Days)</p>
+        </div>
+      </div>
+      <div className="flex-1 w-full h-full min-h-0">
+        {chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#34d399" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#34d399" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#fb7185" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#fb7185" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+              <XAxis 
+                dataKey="date" 
+                stroke="#a1a1aa" 
+                fontSize={12} 
+                tickLine={false} 
+                axisLine={false} 
+                tickFormatter={(val) => {
+                  const date = new Date(val);
+                  return `${date.getDate()} ${date.toLocaleString('default', { month: 'short' })}`;
+                }}
+              />
+              <YAxis 
+                stroke="#a1a1aa" 
+                fontSize={12} 
+                tickLine={false} 
+                axisLine={false} 
+                tickFormatter={(val) => `$${val}`}
+              />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '12px' }}
+                itemStyle={{ color: '#fff' }}
+              />
+              <Area type="monotone" dataKey="income" stroke="#34d399" strokeWidth={2} fillOpacity={1} fill="url(#colorIncome)" />
+              <Area type="monotone" dataKey="expense" stroke="#fb7185" strokeWidth={2} fillOpacity={1} fill="url(#colorExpense)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-zinc-500">
+            No data available for chart
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
+  const [transactions, setTransactions] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load from LocalStorage on mount
+  useEffect(() => {
+    const savedData = localStorage.getItem('aura_transactions');
+    if (savedData) {
+      setTransactions(JSON.parse(savedData));
+    } else {
+      setTransactions(initialData);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Save to LocalStorage whenever transactions change
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('aura_transactions', JSON.stringify(transactions));
+    }
+  }, [transactions, isLoaded]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const income = transactions
+      .filter(t => t.type === 'income')
+      .reduce((acc, curr) => acc + curr.amount, 0);
+    
+    const expenses = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((acc, curr) => acc + curr.amount, 0);
+
+    return {
+      balance: income - expenses,
+      income,
+      expenses
+    };
+  }, [transactions]);
+
+  const addTransaction = (newTx) => {
+    setTransactions([newTx, ...transactions].sort((a, b) => new Date(b.date) - new Date(a.date)));
+  };
+
+  const deleteTransaction = (id) => {
+    setTransactions(transactions.filter(t => t.id !== id));
+  };
+
+  if (!isLoaded) return null; // Prevent hydration flash
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white font-sans flex flex-col md:flex-row">
+      
+      {/* Sidebar Navigation */}
+      <aside className="w-full md:w-64 border-r border-zinc-800 bg-zinc-950/50 flex flex-col hidden md:flex sticky top-0 h-screen">
+        <div className="p-6">
+          <div className="flex items-center space-x-2 font-bold text-xl mb-12">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <Activity className="w-5 h-5 text-white" />
+            </div>
+            <span>Aura Wealth</span>
+          </div>
+          
+          <nav className="space-y-2">
+            <a href="#" className="flex items-center space-x-3 px-4 py-3 bg-zinc-900 text-white rounded-xl font-medium transition-colors border border-zinc-800">
+              <Home className="w-5 h-5 text-indigo-400" />
+              <span>Dashboard</span>
+            </a>
+            <a href="#" className="flex items-center space-x-3 px-4 py-3 text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-xl font-medium transition-colors">
+              <Wallet className="w-5 h-5" />
+              <span>Transactions</span>
+            </a>
+            <a href="#" className="flex items-center space-x-3 px-4 py-3 text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-xl font-medium transition-colors">
+              <PieChart className="w-5 h-5" />
+              <span>Analytics</span>
+            </a>
+          </nav>
+        </div>
+        
+        <div className="mt-auto p-6">
+          <div className="p-4 bg-gradient-to-br from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 rounded-2xl">
+            <h4 className="text-sm font-semibold mb-1 text-white">Pro Plan</h4>
+            <p className="text-xs text-indigo-200/60 mb-3">Unlock advanced AI insights.</p>
+            <button className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs font-semibold transition-colors">
+              Upgrade Now
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 w-full max-w-7xl mx-auto p-6 md:p-10 space-y-8 overflow-y-auto">
+        
+        {/* Header */}
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+          <div>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
+            <p className="text-zinc-400 text-sm mt-1">Welcome back. Here is your financial overview.</p>
+          </div>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center space-x-2 bg-white hover:bg-zinc-200 text-black px-5 py-2.5 rounded-xl font-medium transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add Transaction</span>
+          </button>
+        </header>
+
+        {/* Overview Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <StatCard 
+            title="Total Balance" 
+            amount={stats.balance} 
+            type="balance" 
+            icon={DollarSign}
+            trend="+2.5%"
+          />
+          <StatCard 
+            title="Total Income" 
+            amount={stats.income} 
+            type="income" 
+            icon={ArrowDownRight}
+          />
+          <StatCard 
+            title="Total Expenses" 
+            amount={stats.expenses} 
+            type="expense" 
+            icon={ArrowUpRight}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Chart Section */}
+          <div className="lg:col-span-2">
+            <ChartSection data={transactions} />
+          </div>
+
+          {/* Recent Transactions List */}
+          <div className="lg:col-span-1 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 flex flex-col h-[400px]">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-white">Recent History</h3>
+              <button className="text-sm text-indigo-400 hover:text-indigo-300">View All</button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
+              {transactions.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-zinc-500">
+                  <CreditCard className="w-12 h-12 mb-2 opacity-20" />
+                  <p>No transactions yet.</p>
+                </div>
+              ) : (
+                transactions.slice(0, 15).map((tx) => (
+                  <div key={tx.id} className="flex items-center justify-between p-3 hover:bg-zinc-800/50 rounded-xl transition-colors group">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg ${tx.type === 'income' ? 'bg-emerald-400/10 text-emerald-400' : 'bg-rose-400/10 text-rose-400'}`}>
+                        {tx.type === 'income' ? <ArrowDownRight className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white truncate max-w-[120px]">{tx.title}</p>
+                        <p className="text-xs text-zinc-500">{tx.category} • {tx.date}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className={`font-semibold text-sm ${tx.type === 'income' ? 'text-emerald-400' : 'text-white'}`}>
+                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                      </span>
+                      <button 
+                        onClick={() => deleteTransaction(tx.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-rose-400/10 rounded-md transition-all"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Add Transaction Modal */}
+      <AddTransactionModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onAdd={addTransaction} 
+      />
+
+      {/* Global Styles for Scrollbar */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #52525b; }
+      `}} />
+    </div>
+  );
+}
